@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AniStream — Anikoto API Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#09090f;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* Setup banner */
+.setup-banner{background:#1e1b4b;border-bottom:2px solid #4f46e5;padding:10px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:.82rem}
+.setup-banner code{background:#312e81;padding:2px 7px;border-radius:4px;font-family:monospace;color:#a5b4fc}
+.setup-banner a{color:#818cf8;text-decoration:none}
+.setup-banner a:hover{text-decoration:underline}
+.setup-icon{font-size:1rem;flex-shrink:0}
+.setup-text{flex:1}
+.setup-dismiss{cursor:pointer;color:#6b7280;font-size:1.1rem;line-height:1;flex-shrink:0;background:none;border:none;padding:0}
+.setup-dismiss:hover{color:#e2e8f0}
+
+/* Header */
+.hdr{background:#111827;border-bottom:1px solid #1f2937;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+.logo{font-size:1.1rem;font-weight:700;color:#818cf8;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.logo-sub{font-size:.7rem;font-weight:400;color:#4b5563;letter-spacing:.03em}
+.sw{flex:1;max-width:520px;display:flex;gap:8px}
+.sw input{flex:1;padding:9px 13px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#e2e8f0;font-size:.875rem;outline:none;transition:border-color .15s}
+.sw input:focus{border-color:#6366f1}
+.btn{padding:9px 18px;border-radius:6px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:.875rem;transition:background .15s;white-space:nowrap}
+.btn:hover{background:#4f46e5}.btn:disabled{opacity:.45;cursor:default}
+
+/* Layout */
+.main{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* Sidebar */
+.sb{width:280px;min-width:220px;background:#111827;border-right:1px solid #1f2937;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sb-head{padding:10px 14px;font-size:.73rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #1f2937;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.back{cursor:pointer;color:#818cf8;font-size:.78rem;text-transform:none;font-weight:500;background:none;border:none;padding:0}
+.back:hover{color:#a5b4fc}
+.sb-body{flex:1;overflow-y:auto}
+
+/* Anime cards */
+.acard{display:flex;gap:9px;padding:9px 14px;cursor:pointer;border-bottom:1px solid #1f2937;align-items:center;transition:background .12s}
+.acard:hover{background:#1f2937}
+.acard img{width:40px;height:54px;object-fit:cover;border-radius:3px;flex-shrink:0;background:#1a1a2e}
+.acard-info{flex:1;min-width:0}
+.acard-title{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acard-slug{font-size:.7rem;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Episodes */
+.epitem{padding:7px 14px;cursor:pointer;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:8px;transition:background .12s}
+.epitem:hover{background:#1f2937}
+.epitem.active{background:#1e1b4b;padding-left:12px;border-left:2px solid #6366f1}
+.epnum{width:30px;text-align:center;font-size:.82rem;font-weight:600;color:#818cf8;flex-shrink:0}
+.epinfo{flex:1;min-width:0}
+.eptitle{font-size:.8rem}
+.badges{display:flex;gap:3px;margin-top:3px}
+.badge{font-size:.62rem;padding:1px 5px;border-radius:3px;background:#1f2937;color:#9ca3af}
+.badge.sub{background:#1e3a5f;color:#60a5fa}
+.badge.dub{background:#14291a;color:#4ade80}
+
+/* Content */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.pvid{background:#000;flex-shrink:0}
+video{width:100%;display:block;max-height:50vh}
+.pinfo{padding:8px 14px;background:#111827;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.now{font-size:.8rem;color:#9ca3af;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skips{display:flex;gap:5px}
+.sbtn{padding:4px 10px;border-radius:4px;border:1px solid #374151;background:transparent;color:#9ca3af;cursor:pointer;font-size:.75rem}
+.sbtn:hover{background:#1f2937;color:#e2e8f0}
+
+/* Debug log */
+.dbg{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.dbg-head{padding:7px 14px;background:#111827;border-bottom:1px solid #1f2937;font-size:.77rem;font-weight:600;color:#6b7280;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.dot{width:7px;height:7px;border-radius:50%;background:#374151;flex-shrink:0}
+.dot.on{background:#4ade80;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.dbg-body{flex:1;overflow-y:auto;font-family:monospace;font-size:.72rem;background:#07070e}
+.drow{padding:5px 14px;border-bottom:1px solid #111827;line-height:1.5}
+.drow.step{color:#a5b4fc}.drow.ok{color:#4ade80}.drow.err{color:#f87171}.drow.info{color:#6b7280}
+.dsub{padding-top:2px;word-break:break-all}
+.dsub.url{color:#60a5fa;font-size:.68rem}
+.dsub.res{color:#bef264}
+.dsub.err{color:#f87171}
+
+/* Empty / loading */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#374151;gap:6px;padding:20px;text-align:center}
+.empty-ico{font-size:2.5rem}
+.empty-txt{font-size:.85rem}
+.loading{text-align:center;padding:20px;color:#6b7280;font-size:.82rem}
+
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#374151;border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- Setup banner -->
+<div class="setup-banner" id="banner">
+  <span class="setup-icon">&#9881;</span>
+  <span class="setup-text">
+    Requires local proxy &mdash;
+    run <code>python proxy.py</code> in the repo, then search below.
+    &nbsp;&bull;&nbsp;
+    <a href="https://github.com/AvighnaBasak/anikototv-api" target="_blank">GitHub repo</a>
+    &nbsp;&bull;&nbsp;
+    Or open <a href="http://localhost:7979" target="_blank">http://localhost:7979</a> directly.
+  </span>
+  <button class="setup-dismiss" id="dismiss-banner" title="Dismiss">&#x2715;</button>
+</div>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo">
+    &#9654; AniStream
+    <span class="logo-sub">anikototv-api demo</span>
+  </div>
+  <div class="sw">
+    <input id="q" type="text" placeholder="Search anime&#8230;">
+    <button class="btn" id="sbtn">Search</button>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sb">
+    <div class="sb-head">
+      <span id="sblabel">Results</span>
+      <button class="back" id="backbtn" style="display:none">&#8592; Back</button>
+    </div>
+    <div class="sb-body" id="sbbody"></div>
+  </div>
+
+  <!-- Content: player + log -->
+  <div class="content">
+    <div class="pvid" id="pvid" style="display:none">
+      <video id="v" controls></video>
+    </div>
+    <div class="pinfo" id="pinfo" style="display:none">
+      <div class="now" id="nowplay"></div>
+      <div class="skips" id="skips" style="display:none">
+        <button class="sbtn" id="skip-intro">Skip Intro</button>
+        <button class="sbtn" id="skip-outro">Skip Outro</button>
+      </div>
+    </div>
+    <div class="dbg">
+      <div class="dbg-head">
+        <div class="dot" id="dot"></div>
+        <span>API Pipeline Log</span>
+      </div>
+      <div class="dbg-body" id="dlog"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* All API calls go to the local proxy — Chrome allows HTTPS pages to
+     call http://localhost because it's a "potentially trustworthy origin". */
+  var PROXY = 'http://localhost:7979';
+
+  var hls = null, intro_ = null, outro_ = null;
+  var searchResults_ = [], episodeStore_ = {};
+  var currentAnime_ = null, activeEpEl_ = null;
+
+  /* ── utils ── */
+  function $(id) { return document.getElementById(id); }
+  function dot(on) { $('dot').className = 'dot' + (on ? ' on' : ''); }
+
+  function log(cls, msg, sub, subCls) {
+    var body = $('dlog');
+    var row = document.createElement('div');
+    row.className = 'drow ' + cls;
+    row.textContent = msg;
+    if (sub != null) {
+      var s = document.createElement('div');
+      s.className = 'dsub ' + (subCls || 'url');
+      s.textContent = sub;
+      row.appendChild(s);
+    }
+    body.appendChild(row);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function clearLog() { $('dlog').textContent = ''; }
+
+  function renderSteps(steps) {
+    (steps || []).forEach(function (s) {
+      var hdr = 'Step ' + s.n + ': ' + s.label + (s.status ? ' → HTTP ' + s.status : '');
+      log('step', hdr, s.url, 'url');
+      if (s.result)  log('ok',   '  ↳ ' + s.result,  null, 'res');
+      if (s.snippet) log('info', '  ↳ ' + s.snippet.substring(0, 120) + '…', null, 'res');
+      if (s.error)   log('err',  '  ✗ ' + s.error,   null, 'err');
+    });
+  }
+
+  function emptyState(icon, txt) {
+    var wrap = document.createElement('div');
+    wrap.className = 'empty';
+    var ico = document.createElement('div');
+    ico.className = 'empty-ico';
+    ico.textContent = icon;
+    var t = document.createElement('div');
+    t.className = 'empty-txt';
+    t.textContent = txt;
+    wrap.appendChild(ico);
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  function loadingEl(txt) {
+    var d = document.createElement('div');
+    d.className = 'loading';
+    d.textContent = txt || 'Loading…';
+    return d;
+  }
+
+  /* ── search ── */
+  function doSearch() {
+    var q = $('q').value.trim();
+    if (!q) return;
+    clearLog(); dot(true);
+    log('step', 'Searching: "' + q + '"');
+    var body = $('sbbody');
+    body.textContent = '';
+    body.appendChild(loadingEl('Searching…'));
+    $('sblabel').textContent = 'Results';
+    $('backbtn').style.display = 'none';
+    $('sbtn').disabled = true;
+
+    fetch(PROXY + '/api/search?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        dot(false);
+        $('sbtn').disabled = false;
+        renderSteps(data.steps);
+        searchResults_ = data.results || [];
+        if (!data.ok || !searchResults_.length) {
+          log('err', 'No results' + (data.error ? ': ' + data.error : ''));
+          body.textContent = '';
+          body.appendChild(emptyState('\u{1F615}', 'No results found'));
+          return;
+        }
+        log('ok', 'Found ' + searchResults_.length + ' result(s)');
+        renderResults(searchResults_);
+      })
+      .catch(function (e) {
+        dot(false);
+        $('sbtn').disabled = false;
+        log('err', 'Fetch error: ' + e);
+        log('info', 'Is proxy.py running? Start it with: python proxy.py');
+      });
+  }
+
+  function renderResults(results) {
+    var body = $('sbbody');
+    body.textContent = '';
+    results.forEach(function (r, idx) {
+      var card = document.createElement('div');
+      card.className = 'acard';
+      card.dataset.idx = idx;
+
+      var img = document.createElement('img');
+      img.src = r.img;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.onerror = function () { this.style.visibility = 'hidden'; };
+
+      var info = document.createElement('div');
+      info.className = 'acard-info';
+
+      var title = document.createElement('div');
+      title.className = 'acard-title';
+      title.textContent = r.title;
+
+      var slug = document.createElement('div');
+      slug.className = 'acard-slug';
+      slug.textContent = r.slug;
+
+      info.appendChild(title);
+      info.appendChild(slug);
+      card.appendChild(img);
+      card.appendChild(info);
+      card.addEventListener('click', function () {
+        selectAnime(searchResults_[parseInt(this.dataset.idx, 10)]);
+      });
+      body.appendChild(card);
+    });
+  }
+
+  /* ── episodes ── */
+  function backToSearch() {
+    $('sblabel').textContent = 'Results';
+    $('backbtn').style.display = 'none';
+    renderResults(searchResults_);
+  }
+
+  function selectAnime(r) {
+    currentAnime_ = r;
+    clearLog(); dot(true);
+    log('step', 'Loading episodes: ' + r.title + ' (' + r.slug + ')');
+    var body = $('sbbody');
+    body.textContent = '';
+    body.appendChild(loadingEl('Loading episodes…'));
+    var short = r.title.length > 24 ? r.title.substring(0, 23) + '…' : r.title;
+    $('sblabel').textContent = short;
+    $('backbtn').style.display = '';
+
+    fetch(PROXY + '/api/episodes?slug=' + encodeURIComponent(r.slug))
+      .then(function (x) { return x.json(); })
+      .then(function (data) {
+        dot(false);
+        renderSteps(data.steps);
+        if (!data.ok) {
+          log('err', 'Failed: ' + (data.error || 'unknown'));
+          body.textContent = '';
+          body.appendChild(emptyState('⚠️', 'Could not load episodes'));
+          return;
+        }
+        log('ok', data.episodes.length + ' episode(s)  |  anime_id=' + data.anime_id);
+        episodeStore_ = {};
+        data.episodes.forEach(function (ep) { episodeStore_[ep.id] = ep; });
+        renderEpisodes(data.episodes);
+      })
+      .catch(function (e) { dot(false); log('err', 'Fetch error: ' + e); });
+  }
+
+  function renderEpisodes(episodes) {
+    var body = $('sbbody');
+    body.textContent = '';
+    episodes.forEach(function (ep) {
+      var row = document.createElement('div');
+      row.className = 'epitem';
+      row.id = 'ep-' + ep.id;
+      row.dataset.epid = ep.id;
+
+      var num = document.createElement('div');
+      num.className = 'epnum';
+      num.textContent = ep.num;
+
+      var info = document.createElement('div');
+      info.className = 'epinfo';
+
+      var title = document.createElement('div');
+      title.className = 'eptitle';
+      title.textContent = 'Episode ' + ep.num;
+
+      var badges = document.createElement('div');
+      badges.className = 'badges';
+
+      if (ep.has_sub) {
+        var bs = document.createElement('span');
+        bs.className = 'badge sub';
+        bs.textContent = 'SUB';
+        badges.appendChild(bs);
+      }
+      if (ep.has_dub) {
+        var bd = document.createElement('span');
+        bd.className = 'badge dub';
+        bd.textContent = 'DUB';
+        badges.appendChild(bd);
+      }
+      var bid = document.createElement('span');
+      bid.className = 'badge';
+      bid.textContent = 'id:' + ep.id;
+      badges.appendChild(bid);
+
+      info.appendChild(title);
+      info.appendChild(badges);
+      row.appendChild(num);
+      row.appendChild(info);
+      row.addEventListener('click', function () {
+        playEp(episodeStore_[this.dataset.epid], this);
+      });
+      body.appendChild(row);
+    });
+  }
+
+  /* ── stream ── */
+  function playEp(ep, el) {
+    if (activeEpEl_) activeEpEl_.classList.remove('active');
+    el.classList.add('active');
+    activeEpEl_ = el;
+
+    clearLog(); dot(true);
+    log('step', 'Loading stream — Episode ' + ep.num);
+    log('info', 'data_ids = ' + ep.data_ids.substring(0, 50) + '…');
+
+    if (hls) { hls.destroy(); hls = null; }
+    $('pvid').style.display = 'none';
+    $('pinfo').style.display = 'none';
+
+    fetch(PROXY + '/api/stream?data_ids=' + encodeURIComponent(ep.data_ids))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        dot(false);
+        renderSteps(data.steps);
+        if (!data.ok) {
+          log('err', '✗ Stream error: ' + (data.error || 'unknown'));
+          return;
+        }
+
+        intro_ = data.intro || null;
+        outro_ = data.outro || null;
+
+        log('ok', '✓ m3u8 ready', data.m3u8_raw, 'res');
+        if (intro_) log('info', '  Intro: ' + intro_.start + 's – ' + intro_.end + 's');
+        if (outro_) log('info', '  Outro: ' + outro_.start + 's – ' + outro_.end + 's');
+        if (data.tracks && data.tracks.length) {
+          log('info', '  Subtitles: ' + data.tracks.map(function (t) { return t.label; }).join(', '));
+        }
+
+        $('pvid').style.display = 'block';
+        $('pinfo').style.display = 'flex';
+        $('nowplay').textContent = (currentAnime_ ? currentAnime_.title + ' — ' : '') + 'Episode ' + ep.num;
+        $('skips').style.display = (intro_ || outro_) ? '' : 'none';
+
+        var v = $('v');
+        if (!Hls.isSupported()) { log('err', 'HLS.js not supported in this browser'); return; }
+        hls = new Hls({ enableWorker: false });
+        hls.loadSource(PROXY + data.m3u8);
+        hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, function (e, d) {
+          log('ok', '✓ HLS manifest — ' + d.levels.length + ' quality level(s)');
+          v.play().catch(function () {});
+        });
+        hls.on(Hls.Events.ERROR, function (e, d) {
+          if (d.fatal) log('err', '✗ HLS: ' + d.details + (d.response ? ' (HTTP ' + d.response.code + ')' : ''));
+        });
+      })
+      .catch(function (e) { dot(false); log('err', 'Fetch error: ' + e); });
+  }
+
+  /* ── skip buttons ── */
+  $('skip-intro').addEventListener('click', function () { if (intro_) $('v').currentTime = intro_.end; });
+  $('skip-outro').addEventListener('click', function () { if (outro_) $('v').currentTime = outro_.end; });
+
+  /* ── dismiss banner ── */
+  $('dismiss-banner').addEventListener('click', function () {
+    $('banner').style.display = 'none';
+  });
+
+  /* ── wire up search ── */
+  $('sbtn').addEventListener('click', doSearch);
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSearch(); });
+  $('backbtn').addEventListener('click', backToSearch);
+
+  /* ── initial state ── */
+  $('sbbody').appendChild(emptyState('\u{1F50D}', 'Search for an anime above'));
+  log('info', 'Ready. Proxy must be running at localhost:7979.');
+  log('info', 'Start it with: python proxy.py');
+}());
+</script>
+</body>
+</html>

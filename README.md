@@ -11,6 +11,12 @@ anikototv.to  →  megaplay.buzz  →  cdn.mewstream.buzz (video)
 
 **Status:** Fully cracked. Confirmed working for multiple anime and CDN stacks.
 
+**Live demo:** Open [`demo.html`](demo.html) in your browser with `proxy.py` running locally.
+
+---
+
+![Demo](demo.gif)
+
 ---
 
 ## ID Database — Where the IDs Come From
